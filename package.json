@@ -1,0 +1,31 @@
+{
+  "name": "dependency-detective",
+  "version": "0.1.0",
+  "description": "Analyzes your project's dependencies, identifies unused ones, forecasts potential security risks, and suggests better alternatives",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "dependency-detective": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "dependencies",
+    "npm",
+    "node",
+    "security",
+    "optimization"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.8.1",
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "dotenv": "^16.4.7",
+    "glob": "^11.0.1",
+    "ora": "^8.2.0"
+  }
+}
