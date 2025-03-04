@@ -7,6 +7,7 @@ import { checkVulnerabilities } from './security-checker.js';
 import { suggestAlternatives } from './alternative-suggester.js'; 
 
 export async function analyzeProject(options) {
+  //default dependencies for react/nextjs project
   const REQUIRED_DEPENDENCIES = new Set([
     'react',
     'react-dom',
@@ -44,22 +45,22 @@ export async function analyzeProject(options) {
       )
     );
 
-    // 1. Identify unused dependencies
+    //  Identifing unused dependencies
     spinner.text = 'Scanning for unused dependencies...';
     const unusedDeps = await findUnusedDependencies(options.directory, filteredDependencies);
 
-    // 2. Check for security vulnerabilities
+    //  Checking for security vulnerabilities
     spinner.text = 'Checking for security vulnerabilities...';
     const vulnerabilities = await checkVulnerabilities(filteredDependencies);
 
-    // 3. Suggest alternatives (if enabled)
+    //  Suggesting alternatives (if enabled)
     let alternatives = {};
     if (options.suggestions !== false) {
       spinner.text = 'Finding better alternatives...';
       alternatives = await suggestAlternatives(filteredDependencies);
     }
 
-    // Complete the analysis
+    
     spinner.succeed('Analysis complete!');
 
     // Display results
@@ -70,10 +71,11 @@ export async function analyzeProject(options) {
   }
 }
 
-// analyzer.js or index.js
 
-// Define getSavingsEstimate function
+
+
 function getSavingsEstimate(unusedDeps) {
+  
   // Average size of an npm package in MB
   const AVERAGE_PACKAGE_SIZE_MB = 5;
 

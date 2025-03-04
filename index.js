@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+
 
 import { program } from 'commander';
 import packageJson from './package.json' assert { type: 'json' }; 

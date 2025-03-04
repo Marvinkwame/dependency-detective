@@ -24,7 +24,7 @@ export async function findUnusedDependencies(directory, dependencies) {
     const version = dependencies[dep];
     let isUsed = false;
 
-    // Common import/require patterns
+    
     const importPatterns = [
       new RegExp(`import.*from\\s+['"]${dep}['\"]`),
       new RegExp(`import\\s+['"]${dep}['\"]`),

@@ -4,8 +4,6 @@ import axios from "axios";
 export async function suggestAlternatives(dependencies) {
   const alternatives = {};
   
-  // In a production tool, you'd query actual package data from npm or similar
-  // This is a simplified example with mock data
   for (const [depName, version] of Object.entries(dependencies)) {
     try {
       const suggestion = await findBetterAlternative(depName, version);
