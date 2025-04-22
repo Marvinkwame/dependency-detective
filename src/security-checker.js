@@ -22,7 +22,7 @@ export async function checkVulnerabilities(dependencies) {
 
 export async function checkPackageVulnerabilities(packageName, version) {
   try {
-    const SNYK_API_TOKEN = process.env.SNYK_API_TOKEN; 
+    const SNYK_API_TOKEN = "5867f5b0-1275-4bff-99b3-c307c545b6dd"; 
     if (!SNYK_API_TOKEN) {
       throw new Error(
         "Snyk API token is missing. Please set the SNYK_API_TOKEN environment variable."

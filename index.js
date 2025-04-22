@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { program } from 'commander';
-import packageJson from './package.json' assert { type: 'json' }; 
+//import packageJson from './package.json' assert { type: 'json' }; 
 import { analyzeProject } from "./src/analyzer.js"
 import 'dotenv/config';
 
