@@ -6,25 +6,11 @@ import { findUnusedDependencies } from './unused-detector.js';
 import { checkVulnerabilities } from './security-checker.js'; 
 import { suggestAlternatives } from './alternative-suggester.js'; 
 
-export async function analyzeProject(options) {
-  //default dependencies for react/nextjs project
-  const REQUIRED_DEPENDENCIES = new Set([
-    'react',
-    'react-dom',
-    'next',
-    '@types/node',
-    '@types/react',
-    '@types/react-dom',
-    'eslint',
-    'eslint-config-next',
-    'postcss',
-    'typescript',
-  ]);
-
+export async function analyzeProject(options = {}) {
   const spinner = ora('Analyzing your project dependencies...').start();
+  const ignoreSet = new Set(options.ignore || []);
 
   try {
-    // Get package.json from the target directory
     const packageJsonPath = path.join(options.directory, 'package.json');
 
     if (!fs.existsSync(packageJsonPath)) {
@@ -38,41 +24,30 @@ export async function analyzeProject(options) {
       ...(packageJson.devDependencies || {}),
     };
 
-    // Filter out required dependencies
     const filteredDependencies = Object.fromEntries(
-      Object.entries(dependencies).filter(
-        ([depName]) => !REQUIRED_DEPENDENCIES.has(depName)
-      )
+      Object.entries(dependencies).filter(([depName]) => !ignoreSet.has(depName))
     );
 
-    //  Identifing unused dependencies
     spinner.text = 'Scanning for unused dependencies...';
     const unusedDeps = await findUnusedDependencies(options.directory, filteredDependencies);
 
-    //  Checking for security vulnerabilities
     spinner.text = 'Checking for security vulnerabilities...';
     const vulnerabilities = await checkVulnerabilities(filteredDependencies);
 
-    //  Suggesting alternatives (if enabled)
     let alternatives = {};
     if (options.suggestions !== false) {
       spinner.text = 'Finding better alternatives...';
       alternatives = await suggestAlternatives(filteredDependencies);
     }
 
-    
     spinner.succeed('Analysis complete!');
 
-    // Display results
     displayResults(unusedDeps, vulnerabilities, alternatives, options.verbose);
   } catch (error) {
     spinner.fail('Analysis failed');
     console.error(chalk.red('Error:'), error.message);
   }
 }
-
-
-
 
 function getSavingsEstimate(unusedDeps) {
   
@@ -106,7 +81,11 @@ function displayResults(unusedDeps, vulnerabilities, alternatives, verbose) {
 
   // Display vulnerabilities
   console.log('\n' + chalk.bold('🔒 Security Vulnerabilities:'));
-  if (Object.keys(vulnerabilities).length === 0) {
+  if (vulnerabilities === null) {
+    console.log(chalk.yellow('  ⚠  Skipped — SNYK_API_TOKEN not set.'));
+    console.log(chalk.dim('     To enable: add SNYK_API_TOKEN=<your-token> to a .env file.'));
+    console.log(chalk.dim('     Get a free token at https://snyk.io'));
+  } else if (Object.keys(vulnerabilities).length === 0) {
     console.log(chalk.green('  No security vulnerabilities detected. You\'re secure!'));
   } else {
     Object.entries(vulnerabilities).forEach(([depName, issues]) => {
