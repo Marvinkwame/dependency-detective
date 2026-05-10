@@ -1,7 +1,10 @@
-import https from "https";
 import axios from "axios";
 
 export async function checkVulnerabilities(dependencies) {
+  if (!process.env.SNYK_API_TOKEN) {
+    return null;
+  }
+
   const vulnerabilities = {};
 
   for (const [depName, version] of Object.entries(dependencies)) {
@@ -20,20 +23,13 @@ export async function checkVulnerabilities(dependencies) {
   return vulnerabilities;
 }
 
-export async function checkPackageVulnerabilities(packageName, version) {
+async function checkPackageVulnerabilities(packageName, version) {
   try {
-    const SNYK_API_TOKEN = "5867f5b0-1275-4bff-99b3-c307c545b6dd"; 
-    if (!SNYK_API_TOKEN) {
-      throw new Error(
-        "Snyk API token is missing. Please set the SNYK_API_TOKEN environment variable."
-      );
-    }
-
     const response = await axios.get(
       `https://snyk.io/api/v1/test/npm/${packageName}/${version}`,
       {
         headers: {
-          Authorization: `token ${SNYK_API_TOKEN}`,
+          Authorization: `token ${process.env.SNYK_API_TOKEN}`,
         },
       }
     );
