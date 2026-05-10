@@ -1,6 +1,6 @@
 {
   "name": "dependency-detective",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Analyzes your project's dependencies, identifies unused ones, forecasts potential security risks, and suggests better alternatives",
   "main": "index.js",
   "type": "module",
