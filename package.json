@@ -21,6 +21,7 @@
   "author": "Marvin Ackerman",
   "license": "MIT",
   "dependencies": {
+    "@babel/parser": "^7.29.3",
     "axios": "^1.8.1",
     "chalk": "^5.4.1",
     "commander": "^13.1.0",
