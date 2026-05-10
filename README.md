@@ -24,6 +24,21 @@ npm install -g dependency-detective
 npx dependency-detective
 ```
 
+## ⚙️ Configuration
+
+### Snyk API Token (optional)
+
+Vulnerability checking requires a free Snyk account. Without a token the tool still reports unused dependencies and alternative suggestions — the vulnerability section is skipped with a clear message.
+
+1. Sign up at [https://snyk.io](https://snyk.io) and copy your API token from Account Settings.
+2. Create a `.env` file in your project root (or export in your shell profile):
+
+```
+SNYK_API_TOKEN=your-token-here
+```
+
+The tool loads `.env` automatically via dotenv.
+
 ## 🚀 Usage
 
 ```bash
@@ -73,8 +88,11 @@ dependency-detective --no-suggestions
 | `-d, --directory <path>` | Project directory to analyze (default: current directory) |
 | `-v, --verbose` | Show detailed output including reasons and statistics |
 | `--no-suggestions` | Skip suggesting alternative packages |
+| `--ignore <packages>` | Comma-separated list of package names to exclude from all checks |
 | `--help` | Display help information |
 | `--version` | Display version number |
+
+Use `--ignore` for packages that are intentionally hard to detect — build tools, PostCSS plugins, ESLint configs, and similar packages that are referenced in config files rather than imported in source code.
 
 ## 🧩 How It Works
 
