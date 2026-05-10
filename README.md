@@ -96,11 +96,12 @@ Use `--ignore` for packages that are intentionally hard to detect — build tool
 
 ## 🧩 How It Works
 
-1. **Scanning Source Code**: The tool scans your project files looking for import/require statements
-2. **Dependency Analysis**: It cross-references found imports with your package.json
-3. **Security Checking**: It queries security databases for known vulnerabilities
-4. **Alternative Analysis**: It evaluates potential alternative packages based on multiple metrics
-5. **Report Generation**: It presents findings in a clear, actionable format
+1. **AST-Based Source Scanning**: The tool parses your JS/TS/JSX/TSX files using `@babel/parser` to accurately detect `import`, `require`, `export ... from`, and dynamic `import()` statements — no regex guessing
+2. **Config File Scanning**: It also checks common config files (`tailwind.config.js`, `.eslintrc`, `postcss.config.js`, `vite.config.js`, `tsconfig.json`, and more) for packages referenced outside of source code
+3. **Dependency Analysis**: It cross-references all found references with your `package.json`
+4. **Security Checking**: It queries the Snyk API for known vulnerabilities (requires `SNYK_API_TOKEN`)
+5. **Alternative Analysis**: It evaluates potential alternative packages based on multiple metrics
+6. **Report Generation**: It presents findings in a clear, actionable format
 
 ## 🛠️ For Developers
 
@@ -111,9 +112,11 @@ dependency-detective/
 ├── index.js           # CLI entry point
 ├── package.json
 └── src/
-    ├── analyzer.js            # Main analysis logic
-    ├── unused-detector.js     # Detects unused dependencies
-    ├── security-checker.js    # Checks for vulnerabilities
+    ├── analyzer.js            # Main analysis logic and result display
+    ├── unused-detector.js     # Orchestrates unused dependency detection
+    ├── ast-parser.js          # AST-based import extraction (@babel/parser)
+    ├── config-scanner.js      # Scans config files for package references
+    ├── security-checker.js    # Checks for vulnerabilities via Snyk API
     └── alternative-suggester.js # Suggests better alternatives
 ```
 
@@ -136,13 +139,14 @@ npm test
 
 ## ⚠️ Limitations
 
-- The tool may not detect dependencies used in dynamically generated requires or imports
-- Security vulnerability detection relies on external databases which may not be 100% complete
+- Dynamically computed imports (`require(variable)`) cannot be statically detected — use `--ignore` to exempt these packages
+- Security vulnerability detection requires a Snyk API token and relies on Snyk's database, which may not cover every package
 - Alternative suggestions are based on general community metrics and might not be ideal for every specific use case
 
 ## 📝 Roadmap
 
-- [ ] Improve detection accuracy with AST parsing
+- [x] Improve detection accuracy with AST parsing
+- [x] Scan config files for build-tool package references
 - [ ] Add support for monorepos and workspaces
 - [ ] Visual reporting with charts and graphs
 - [ ] Interactive mode for bulk actions on dependencies
