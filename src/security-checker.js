@@ -1,58 +1,54 @@
-import axios from "axios";
+import fs from 'fs';
+import path from 'path';
+import axios from 'axios';
+import { mapWithConcurrency } from './util/concurrency.js';
 
-export async function checkVulnerabilities(dependencies) {
-  if (!process.env.SNYK_API_TOKEN) {
-    return null;
-  }
+const OSV_ENDPOINT = 'https://api.osv.dev/v1/query';
+const CONCURRENCY = 8;
 
-  const vulnerabilities = {};
-
-  for (const [depName, version] of Object.entries(dependencies)) {
-    try {
-      const issues = await checkPackageVulnerabilities(depName, version);
-      if (issues.length > 0) {
-        vulnerabilities[depName] = issues;
-      }
-    } catch (error) {
-      console.error(
-        `Failed to check vulnerabilities for ${depName}: ${error.message}`
-      );
-    }
-  }
-
-  return vulnerabilities;
+export function mapOsvVulns(vulns = []) {
+  return vulns.map((v) => ({
+    severity: v.database_specific?.severity ?? 'UNKNOWN',
+    title: v.summary ?? v.id ?? 'Unknown vulnerability',
+    description: v.details ?? '',
+  }));
 }
 
-async function checkPackageVulnerabilities(packageName, version) {
+export function resolveInstalledVersion(directory, dep) {
   try {
-    const response = await axios.get(
-      `https://snyk.io/api/v1/test/npm/${packageName}/${version}`,
-      {
-        headers: {
-          Authorization: `token ${process.env.SNYK_API_TOKEN}`,
-        },
-      }
-    );
-
-    const vulnerabilities = response.data.issues.vulnerabilities;
-
-    return vulnerabilities.map((vuln) => ({
-      severity: vuln.severity,
-      title: vuln.title,
-      description: vuln.description,
-    }));
-  } catch (error) {
-    if (error.response && error.response.status === 401) {
-      console.error(
-        `Failed to authenticate with Snyk API. Please check your SNYK_API_TOKEN.`
-      );
-    } else if (error.response && error.response.status === 404) {
-      console.error(`Package ${packageName} not found in Snyk database.`);
-    } else {
-      console.error(
-        `Failed to fetch vulnerabilities for ${packageName}: ${error.message}`
-      );
-    }
-    return [];
+    const pkgPath = path.join(directory, 'node_modules', dep, 'package.json');
+    return JSON.parse(fs.readFileSync(pkgPath, 'utf8')).version || null;
+  } catch {
+    return null;
   }
+}
+
+export async function checkVulnerabilities(dependencies, directory) {
+  const deps = Object.keys(dependencies);
+  const vulnerabilities = {};
+  const skipped = [];
+  let attempted = 0;
+  let errored = 0;
+
+  await mapWithConcurrency(deps, CONCURRENCY, async (dep) => {
+    const version = resolveInstalledVersion(directory, dep);
+    if (!version) {
+      skipped.push(dep);
+      return;
+    }
+    attempted++;
+    try {
+      const res = await axios.post(OSV_ENDPOINT, {
+        version,
+        package: { name: dep, ecosystem: 'npm' },
+      });
+      const issues = mapOsvVulns(res.data?.vulns);
+      if (issues.length > 0) vulnerabilities[dep] = issues;
+    } catch {
+      errored++;
+    }
+  });
+
+  const failed = attempted > 0 && errored === attempted;
+  return { vulnerabilities, skipped, failed };
 }
