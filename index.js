@@ -3,7 +3,6 @@
 import { createRequire } from 'module';
 import { program } from 'commander';
 import { analyzeProject } from "./src/analyzer.js"
-import 'dotenv/config';
 
 const require = createRequire(import.meta.url);
 const { version } = require('./package.json');
