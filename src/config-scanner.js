@@ -34,7 +34,7 @@ function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function isReferenced(content, depName) {
+export function isReferenced(content, depName) {
   const pattern = new RegExp(`['"\`]${escapeRegex(depName)}['"\`/]`);
   return pattern.test(content);
 }
