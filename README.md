@@ -1,6 +1,6 @@
 # dependency-detective 🕵️‍♂️
 
-A powerful Node.js tool that analyzes your project's dependencies, identifies unused packages, forecasts potential security risks, and suggests better alternatives based on community engagement and update frequency.
+A Node.js tool that analyzes your project's dependencies: it identifies unused packages, checks for known security vulnerabilities (via the free OSV.dev database — no token required), and flags packages whose latest version has been officially deprecated.
 
 
 ## 🔍 Overview
@@ -10,8 +10,8 @@ A powerful Node.js tool that analyzes your project's dependencies, identifies un
 ## ✨ Features
 
 - **Unused Dependencies Detection**: Identifies truly unused packages that can be safely removed
-- **Security Vulnerabilities Check**: Highlights packages with known security issues
-- **Alternative Package Suggestions**: Recommends better alternatives based on community adoption, performance metrics, and update frequency
+- **Security Vulnerabilities Check**: Highlights packages with known security issues, using the free OSV.dev database
+- **Deprecated Package Detection**: Flags dependencies whose latest version has been officially deprecated by its maintainer
 - **Detailed Reporting**: Get comprehensive information about your dependency health in an easy-to-read format
 
 ## 📋 Installation
@@ -26,18 +26,12 @@ npx dependency-detective
 
 ## ⚙️ Configuration
 
-### Snyk API Token (optional)
+No configuration or API tokens are required. Vulnerability data comes from the free
+[OSV.dev](https://osv.dev) database and works out of the box.
 
-Vulnerability checking requires a free Snyk account. Without a token the tool still reports unused dependencies and alternative suggestions — the vulnerability section is skipped with a clear message.
-
-1. Sign up at [https://snyk.io](https://snyk.io) and copy your API token from Account Settings.
-2. Create a `.env` file in your project root (or export in your shell profile):
-
-```
-SNYK_API_TOKEN=your-token-here
-```
-
-The tool loads `.env` automatically via dotenv.
+> Note: vulnerability checks read the **installed** version of each package from
+> `node_modules`. Run `npm install` first for full coverage — uninstalled packages are
+> reported as "not checked".
 
 ## 🚀 Usage
 
@@ -51,7 +45,7 @@ dependency-detective --directory /path/to/your/project
 # Show more detailed information
 dependency-detective --verbose
 
-# Skip alternative package suggestions
+# Skip the deprecated-package check
 dependency-detective --no-suggestions
 ```
 
@@ -64,21 +58,19 @@ dependency-detective --no-suggestions
   jquery v3.6.0
   moment v2.29.4
 
-  Removing these could save approximately ~10MB of disk space
+  Removing these could free approximately ~3.2MB on disk
 
 🔒 Security Vulnerabilities:
   lodash (1 issues)
 
-💡 Recommended Alternatives:
-  moment → date-fns
-  jquery → No dependency needed
-  express → fastify
+⚠️  Deprecated Packages:
+  request
 
 📋 Next Steps:
   1. Run with --verbose flag for more detailed information
   2. Consider removing unused dependencies with: npm uninstall [package-names]
   3. Address security vulnerabilities by updating affected packages
-  4. Evaluate suggested alternatives for potential improvements
+  4. Replace deprecated packages with maintained alternatives
 ```
 
 ## 🔧 Options
@@ -87,7 +79,7 @@ dependency-detective --no-suggestions
 |--------|-------------|
 | `-d, --directory <path>` | Project directory to analyze (default: current directory) |
 | `-v, --verbose` | Show detailed output including reasons and statistics |
-| `--no-suggestions` | Skip suggesting alternative packages |
+| `--no-suggestions` | Skip the deprecated-package check |
 | `--ignore <packages>` | Comma-separated list of package names to exclude from all checks |
 | `--help` | Display help information |
 | `--version` | Display version number |
@@ -99,8 +91,8 @@ Use `--ignore` for packages that are intentionally hard to detect — build tool
 1. **AST-Based Source Scanning**: The tool parses your JS/TS/JSX/TSX files using `@babel/parser` to accurately detect `import`, `require`, `export ... from`, and dynamic `import()` statements — no regex guessing
 2. **Config File Scanning**: It also checks common config files (`tailwind.config.js`, `.eslintrc`, `postcss.config.js`, `vite.config.js`, `tsconfig.json`, and more) for packages referenced outside of source code
 3. **Dependency Analysis**: It cross-references all found references with your `package.json`
-4. **Security Checking**: It queries the Snyk API for known vulnerabilities (requires `SNYK_API_TOKEN`)
-5. **Alternative Analysis**: It evaluates potential alternative packages based on multiple metrics
+4. **Security Checking**: It queries the free OSV.dev vulnerability database for the installed version of each package (no token required)
+5. **Deprecation Analysis**: It checks the npm registry for packages whose latest version is officially deprecated
 6. **Report Generation**: It presents findings in a clear, actionable format
 
 ## 🛠️ For Developers
@@ -116,8 +108,10 @@ dependency-detective/
     ├── unused-detector.js     # Orchestrates unused dependency detection
     ├── ast-parser.js          # AST-based import extraction (@babel/parser)
     ├── config-scanner.js      # Scans config files for package references
-    ├── security-checker.js    # Checks for vulnerabilities via Snyk API
-    └── alternative-suggester.js # Suggests better alternatives
+    ├── security-checker.js    # Checks vulnerabilities via OSV.dev (no token)
+    ├── alternative-suggester.js # Flags officially-deprecated packages
+    └── util/
+        └── concurrency.js     # Concurrency-capped async map helper
 ```
 
 ### Local Development
@@ -140,18 +134,19 @@ npm test
 ## ⚠️ Limitations
 
 - Dynamically computed imports (`require(variable)`) cannot be statically detected — use `--ignore` to exempt these packages
-- Security vulnerability detection requires a Snyk API token and relies on Snyk's database, which may not cover every package
-- Alternative suggestions are based on general community metrics and might not be ideal for every specific use case
+- Vulnerability checks read the installed version from `node_modules`; uninstalled packages are skipped
+- Vulnerability data comes from OSV.dev, whose coverage and severity ratings may differ from commercial databases
+- Vue/Svelte/Astro single-file components are not yet scanned for imports
 
 ## 📝 Roadmap
 
 - [x] Improve detection accuracy with AST parsing
 - [x] Scan config files for build-tool package references
+- [x] Token-free vulnerability checks via OSV.dev
+- [ ] `--fix` / interactive removal of unused dependencies
 - [ ] Add support for monorepos and workspaces
-- [ ] Visual reporting with charts and graphs
-- [ ] Interactive mode for bulk actions on dependencies
-- [ ] Customizable rules and thresholds
-- [ ] GitHub Actions integration
+- [ ] `--json` output and CI mode with exit codes
+- [ ] Maintenance/abandonment signals for dependencies
 
 ## 📄 License
 
