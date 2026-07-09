@@ -61,14 +61,19 @@ export async function parseFileImports(filePath) {
       if (node.source?.value) referenced.add(extractPackageName(node.source.value));
     },
     CallExpression(node) {
+      // require('pkg')  — CommonJS
+      const isRequire =
+        node.callee?.type === 'Identifier' && node.callee.name === 'require';
+      // import('pkg')  — @babel/parser emits a CallExpression with an Import callee
+      const isDynamicImport = node.callee?.type === 'Import';
       if (
-        node.callee?.type === 'Identifier' &&
-        node.callee.name === 'require' &&
+        (isRequire || isDynamicImport) &&
         node.arguments?.[0]?.type === 'StringLiteral'
       ) {
         referenced.add(extractPackageName(node.arguments[0].value));
       }
     },
+    // ESTree-shaped dynamic import (only if a future estree plugin is enabled)
     ImportExpression(node) {
       if (node.source?.type === 'StringLiteral') {
         referenced.add(extractPackageName(node.source.value));
