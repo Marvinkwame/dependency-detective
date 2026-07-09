@@ -1,64 +1,32 @@
-import axios from "axios";
+import axios from 'axios';
+import { mapWithConcurrency } from './util/concurrency.js';
 
+const CONCURRENCY = 8;
 
-export async function suggestAlternatives(dependencies) {
-  const alternatives = {};
-  
-  for (const [depName, version] of Object.entries(dependencies)) {
-    try {
-      const suggestion = await findBetterAlternative(depName, version);
-      if (suggestion) {
-        alternatives[depName] = suggestion;
-      }
-    } catch (error) {
-      console.error(`Failed to find alternatives for ${depName}: ${error.message}`);
-    }
-  }
-  
-  return alternatives;
+export function extractDeprecation(registryDoc) {
+  const latest = registryDoc?.['dist-tags']?.latest;
+  if (!latest) return null;
+  const deprecated = registryDoc.versions?.[latest]?.deprecated;
+  if (!deprecated) return null;
+  return {
+    deprecated: typeof deprecated === 'string' ? deprecated : 'This package is deprecated',
+    lastUpdated: registryDoc.time?.modified ?? null,
+  };
 }
 
-export async function findBetterAlternative(packageName, version) {
-  try {
-    // Fetch package data from npm registry
-    const npmResponse = await axios.get(`https://registry.npmjs.org/${packageName}`);
-    const packageData = npmResponse.data;
+export async function suggestAlternatives(dependencies) {
+  const deps = Object.keys(dependencies);
+  const alternatives = {};
 
-    // Check if the package is deprecated
-    if (packageData.deprecated) {
-      return {
-        name: packageName,
-        reason: `This package is deprecated: ${packageData.deprecated}`,
-        downloads: packageData.downloads || 0,
-        lastUpdated: packageData.time.modified,
-      };
-    }
-
-    // Fetch alternatives from npms.io
+  await mapWithConcurrency(deps, CONCURRENCY, async (dep) => {
     try {
-      const alternativesResponse = await axios.get(`https://api.npms.io/v2/package/${packageName}`);
-      const alternativesData = alternativesResponse.data;
-
-      if (alternativesData.alternatives && alternativesData.alternatives.length > 0) {
-        const bestAlternative = alternativesData.alternatives[0];
-        return {
-          name: bestAlternative.package.name,
-          reason: `Recommended alternative: ${bestAlternative.package.description}`,
-          downloads: bestAlternative.package.downloads,
-          lastUpdated: bestAlternative.package.date,
-        };
-      }
-    } catch (error) {
-      console.error(`No alternatives found for ${packageName} in npms.io: ${error.message}`);
+      const res = await axios.get(`https://registry.npmjs.org/${dep}`);
+      const info = extractDeprecation(res.data);
+      if (info) alternatives[dep] = { name: dep, ...info };
+    } catch {
+      // per-dep registry failure — omit silently
     }
+  });
 
-    return null;
-  } catch (error) {
-    if (error.response && error.response.status === 404) {
-      console.error(`Package ${packageName} not found in npm registry.`);
-    } else {
-      console.error(`Failed to fetch alternatives for ${packageName}: ${error.message}`);
-    }
-    return null;
-  }
+  return alternatives;
 }
