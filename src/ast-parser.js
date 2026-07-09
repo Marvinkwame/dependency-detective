@@ -3,7 +3,7 @@ import { parse } from '@babel/parser';
 
 const BABEL_PLUGINS = ['jsx', 'typescript', 'dynamicImport', 'importMeta'];
 
-function extractPackageName(source) {
+export function extractPackageName(source) {
   if (source.startsWith('.')) return source;
   if (source.startsWith('@')) {
     return source.split('/').slice(0, 2).join('/');
@@ -29,12 +29,13 @@ function walk(node, visitor) {
 
 export async function parseFileImports(filePath) {
   const referenced = new Set();
+  const warnings = [];
 
   let content;
   try {
     content = await fs.promises.readFile(filePath, 'utf8');
   } catch {
-    return referenced;
+    return { referenced, warnings };
   }
 
   let ast;
@@ -45,8 +46,8 @@ export async function parseFileImports(filePath) {
       errorRecovery: true,
     });
   } catch (err) {
-    console.warn(`Warning: could not parse ${filePath}: ${err.message}`);
-    return referenced;
+    warnings.push(`Could not parse ${filePath}: ${err.message}`);
+    return { referenced, warnings };
   }
 
   walk(ast, {
@@ -75,5 +76,5 @@ export async function parseFileImports(filePath) {
     },
   });
 
-  return referenced;
+  return { referenced, warnings };
 }
