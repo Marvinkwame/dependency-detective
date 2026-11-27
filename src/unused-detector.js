@@ -2,6 +2,7 @@ import path from 'path';
 import { glob } from 'glob';
 import { parseFileImports } from './ast-parser.js';
 import { scanConfigFiles } from './config-scanner.js';
+import { findScriptReferences } from './script-scanner.js';
 
 export function resolveTypesUsage(referenced, deps) {
   const used = new Set();
@@ -46,13 +47,8 @@ export async function findUnusedDependencies(directory, dependencies, packageJso
   const configReferenced = await scanConfigFiles(directory, allDeps, packageJson);
   for (const pkg of configReferenced) referenced.add(pkg);
 
-  const scripts = Object.values(packageJson.scripts || {});
-  for (const dep of allDeps) {
-    const pattern = new RegExp(
-      `(?:^|\\s|['"./])${dep.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:$|\\s|['"./])`
-    );
-    if (scripts.some((script) => pattern.test(script))) referenced.add(dep);
-  }
+  const scriptReferenced = findScriptReferences(directory, allDeps, packageJson.scripts);
+  for (const pkg of scriptReferenced) referenced.add(pkg);
 
   // @types/* resolution: use the full referenced set (all imports, not only deps)
   const typesUsed = resolveTypesUsage(allReferenced, allDeps);

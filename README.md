@@ -90,10 +90,11 @@ Use `--ignore` for packages that are intentionally hard to detect — build tool
 
 1. **AST-Based Source Scanning**: The tool parses your JS/TS/JSX/TSX files using `@babel/parser` to accurately detect `import`, `require`, `export ... from`, and dynamic `import()` statements — no regex guessing
 2. **Config File Scanning**: It also checks common config files (`tailwind.config.js`, `.eslintrc`, `postcss.config.js`, `vite.config.js`, `tsconfig.json`, and more) for packages referenced outside of source code. ESLint configs are understood in both flat (`eslint.config.*`) and legacy (`.eslintrc*`, including YAML and the `eslintConfig` field in `package.json`) form, including short names such as `react` for `eslint-plugin-react` and `airbnb` for `eslint-config-airbnb`
-3. **Dependency Analysis**: It cross-references all found references with your `package.json`
-4. **Security Checking**: It queries the free OSV.dev vulnerability database for the installed version of each package (no token required)
-5. **Deprecation Analysis**: It checks the npm registry for packages whose latest version is officially deprecated
-6. **Report Generation**: It presents findings in a clear, actionable format
+3. **Script Scanning**: It checks your `package.json` scripts for each package's commands, read from its `bin` field — so `tsc` counts as using `typescript` and `run-p` as using `npm-run-all`
+4. **Dependency Analysis**: It cross-references all found references with your `package.json`
+5. **Security Checking**: It queries the free OSV.dev vulnerability database for the installed version of each package (no token required)
+6. **Deprecation Analysis**: It checks the npm registry for packages whose latest version is officially deprecated
+7. **Report Generation**: It presents findings in a clear, actionable format
 
 ## 🛠️ For Developers
 
@@ -108,6 +109,7 @@ dependency-detective/
     ├── unused-detector.js     # Orchestrates unused dependency detection
     ├── ast-parser.js          # AST-based import extraction (@babel/parser)
     ├── config-scanner.js      # Scans config files for package references
+    ├── script-scanner.js      # Matches npm script commands to packages via their bin field
     ├── security-checker.js    # Checks vulnerabilities via OSV.dev (no token)
     ├── alternative-suggester.js # Flags officially-deprecated packages
     └── util/
