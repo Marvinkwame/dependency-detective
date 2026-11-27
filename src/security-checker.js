@@ -6,6 +6,7 @@ import { mapWithConcurrency } from './util/concurrency.js';
 
 const OSV_ENDPOINT = 'https://api.osv.dev/v1/query';
 const CONCURRENCY = 8;
+const REQUEST_TIMEOUT_MS = 10_000;
 
 function fixedVersions(vuln, packageName) {
   const fixed = new Set();
@@ -80,10 +81,11 @@ export async function checkVulnerabilities(packages, directory) {
     }
     attempted++;
     try {
-      const res = await axios.post(OSV_ENDPOINT, {
-        version: installedVersion,
-        package: { name, ecosystem: 'npm' },
-      });
+      const res = await axios.post(
+        OSV_ENDPOINT,
+        { version: installedVersion, package: { name, ecosystem: 'npm' } },
+        { timeout: REQUEST_TIMEOUT_MS }
+      );
       const issues = mapOsvVulns(res.data?.vulns, name);
       if (issues.length > 0) {
         vulnerabilities.push({

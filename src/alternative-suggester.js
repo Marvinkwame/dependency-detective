@@ -2,6 +2,7 @@ import axios from 'axios';
 import { mapWithConcurrency } from './util/concurrency.js';
 
 const CONCURRENCY = 8;
+const REQUEST_TIMEOUT_MS = 10_000;
 
 /** Reads the deprecation notice from a package's latest-version document. */
 export function extractDeprecation(latestDoc) {
@@ -23,7 +24,9 @@ export async function suggestAlternatives(dependencies) {
 
   await mapWithConcurrency(deps, CONCURRENCY, async (dep) => {
     try {
-      const res = await axios.get(`https://registry.npmjs.org/${dep}/latest`);
+      const res = await axios.get(`https://registry.npmjs.org/${dep}/latest`, {
+        timeout: REQUEST_TIMEOUT_MS,
+      });
       const info = extractDeprecation(res.data);
       if (info) alternatives[dep] = { name: dep, ...info };
     } catch {

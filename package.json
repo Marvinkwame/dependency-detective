@@ -1,7 +1,7 @@
 {
   "name": "dependency-detective",
-  "version": "0.4.1",
-  "description": "Finds unused dependencies, known vulnerabilities (via OSV.dev), and deprecated packages in your Node.js project",
+  "version": "0.5.0",
+  "description": "Pre-release dependency check for Node.js apps: missing and unused dependencies, production vulnerabilities (via OSV.dev), deprecated packages, and the commands to fix them",
   "main": "index.js",
   "type": "module",
   "bin": {
