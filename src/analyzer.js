@@ -5,6 +5,7 @@ import ora from 'ora';
 import { findUnusedDependencies } from './unused-detector.js';
 import { checkVulnerabilities } from './security-checker.js';
 import { suggestAlternatives } from './alternative-suggester.js';
+import { readIgnoreConfig, createIgnoreMatcher } from './ignore.js';
 
 export const EXIT_OK = 0;
 export const EXIT_ISSUES = 1;
@@ -18,7 +19,6 @@ class AnalysisError extends Error {}
  */
 export async function runAnalysis(options = {}, onProgress = () => {}) {
   const directory = path.resolve(options.directory ?? process.cwd());
-  const ignoreSet = new Set(options.ignore || []);
 
   const packageJsonPath = path.join(directory, 'package.json');
   if (!fs.existsSync(packageJsonPath)) {
@@ -32,11 +32,21 @@ export async function runAnalysis(options = {}, onProgress = () => {}) {
     throw new AnalysisError(`Could not read ${packageJsonPath}: ${err.message}`);
   }
 
+  let savedIgnore;
+  try {
+    savedIgnore = readIgnoreConfig(packageJson);
+  } catch (err) {
+    throw new AnalysisError(err.message);
+  }
+  const isIgnored = createIgnoreMatcher([...savedIgnore, ...(options.ignore || [])]);
+
+  const allDependencies = {
+    ...(packageJson.dependencies || {}),
+    ...(packageJson.devDependencies || {}),
+  };
+  const ignored = Object.keys(allDependencies).filter(isIgnored).sort();
   const dependencies = Object.fromEntries(
-    Object.entries({
-      ...(packageJson.dependencies || {}),
-      ...(packageJson.devDependencies || {}),
-    }).filter(([depName]) => !ignoreSet.has(depName))
+    Object.entries(allDependencies).filter(([depName]) => !isIgnored(depName))
   );
 
   onProgress('Scanning for unused dependencies...');
@@ -70,6 +80,7 @@ export async function runAnalysis(options = {}, onProgress = () => {}) {
     notChecked: security.skipped,
     securityCheckFailed: security.failed,
     deprecated,
+    ignored,
     warnings,
     summary: {
       unused: unused.length,
@@ -205,6 +216,10 @@ function displayResults(report, verbose) {
         if (info.lastUpdated) console.log(`    ${chalk.dim(`Last updated: ${info.lastUpdated}`)}`);
       }
     }
+  }
+
+  if (report.ignored.length > 0) {
+    console.log('\n' + chalk.dim(`Ignored (${report.ignored.length}): ${report.ignored.join(', ')}`));
   }
 
   if (report.warnings.length > 0) {

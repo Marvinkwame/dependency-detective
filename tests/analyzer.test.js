@@ -91,6 +91,37 @@ test('missing package.json exits 2, with a JSON error in --json mode', () => {
   assert.equal(human.code, 2);
 });
 
+test('runAnalysis skips packages in the saved ignore list and --ignore', async () => {
+  const dir = tempProject(
+    {
+      dependencies: { lodash: '^4.0.0', postcss: '^8.0.0', moment: '^2.0.0' },
+      devDependencies: { '@types/node': '^20.0.0', '@types/lodash': '^4.0.0' },
+      dependencyDetective: { ignore: ['postcss', '@types/*'] },
+    },
+    { 'a.js': "require('lodash');\n" }
+  );
+  const report = await runAnalysis({ directory: dir, suggestions: false, ignore: ['moment'] });
+  assert.deepEqual(report.unused, []);
+  assert.deepEqual(report.ignored, ['@types/lodash', '@types/node', 'moment', 'postcss']);
+});
+
+test('--json exits 0 when the only unused package is in the saved ignore list', () => {
+  const dir = tempProject(
+    { dependencies: { postcss: '^8.0.0' }, dependencyDetective: { ignore: ['postcss'] } },
+    { 'a.js': '1;\n' }
+  );
+  const { code, stdout } = runCli(['--json', '--no-suggestions', '-d', dir]);
+  assert.equal(code, 0);
+  assert.deepEqual(JSON.parse(stdout).ignored, ['postcss']);
+});
+
+test('an invalid saved ignore list exits 2 with an explanation', () => {
+  const dir = tempProject({ dependencyDetective: { ignore: 'postcss' } });
+  const { code, stdout } = runCli(['--json', '--no-suggestions', '-d', dir]);
+  assert.equal(code, 2);
+  assert.match(JSON.parse(stdout).error, /dependencyDetective\.ignore/);
+});
+
 test('human-readable mode also exits 1 when unused deps are found', () => {
   const dir = tempProject({ dependencies: { lodash: '^4.0.0' } }, { 'a.js': '1;\n' });
   assert.equal(runCli(['--no-suggestions', '-d', dir]).code, 1);

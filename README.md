@@ -29,6 +29,22 @@ npx dependency-detective
 No configuration or API tokens are required. Vulnerability data comes from the free
 [OSV.dev](https://osv.dev) database and works out of the box.
 
+### Ignoring packages
+
+Some packages are used in ways the tool can't see, such as a plugin loaded by name at
+runtime. Save them in your `package.json` so every run (including CI) skips them:
+
+```json
+{
+  "dependencyDetective": {
+    "ignore": ["postcss", "@types/*", "eslint-plugin-*"]
+  }
+}
+```
+
+`*` matches any characters. Ignored packages are skipped by every check and listed at
+the end of the report. Names passed with `--ignore` are added to this list.
+
 > Note: vulnerability checks read the **installed** version of each package from
 > `node_modules`. Run `npm install` first for full coverage — uninstalled packages are
 > reported as "not checked".
@@ -83,12 +99,12 @@ dependency-detective --json
 | `-d, --directory <path>` | Project directory to analyze (default: current directory) |
 | `-v, --verbose` | Show detailed output including reasons and statistics |
 | `--no-suggestions` | Skip the deprecated-package check |
-| `--ignore <packages>` | Comma-separated list of package names to exclude from all checks |
+| `--ignore <packages>` | Comma-separated package names to exclude from all checks, added to the [saved ignore list](#ignoring-packages). `*` is a wildcard |
 | `--json` | Print the report as JSON instead of the formatted report |
 | `--help` | Display help information |
 | `--version` | Display version number |
 
-Use `--ignore` for packages that are intentionally hard to detect — build tools, PostCSS plugins, ESLint configs, and similar packages that are referenced in config files rather than imported in source code.
+For packages you always want skipped, use the [saved ignore list](#ignoring-packages) instead of repeating `--ignore`.
 
 ## 🤖 Using in CI
 
@@ -134,6 +150,7 @@ With `--json`, only JSON is written to stdout:
   "notChecked": [],
   "securityCheckFailed": false,
   "deprecated": [{ "name": "request", "message": "request has been deprecated", "lastUpdated": "2024-01-01T00:00:00.000Z" }],
+  "ignored": ["postcss"],
   "warnings": [],
   "summary": { "unused": 1, "vulnerable": 1, "deprecated": 1 }
 }
@@ -165,6 +182,7 @@ dependency-detective/
     ├── ast-parser.js          # AST-based import extraction (@babel/parser)
     ├── config-scanner.js      # Scans config files for package references
     ├── script-scanner.js      # Matches npm script commands to packages via their bin field
+    ├── ignore.js              # Saved ignore list and * wildcard matching
     ├── security-checker.js    # Checks vulnerabilities via OSV.dev (no token)
     ├── alternative-suggester.js # Flags officially-deprecated packages
     └── util/
