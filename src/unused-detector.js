@@ -43,7 +43,7 @@ export async function findUnusedDependencies(directory, dependencies, packageJso
     warnings.push(...fileWarnings);
   }
 
-  const configReferenced = await scanConfigFiles(directory, allDeps);
+  const configReferenced = await scanConfigFiles(directory, allDeps, packageJson);
   for (const pkg of configReferenced) referenced.add(pkg);
 
   const scripts = Object.values(packageJson.scripts || {});

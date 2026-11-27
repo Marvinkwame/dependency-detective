@@ -89,7 +89,7 @@ Use `--ignore` for packages that are intentionally hard to detect — build tool
 ## 🧩 How It Works
 
 1. **AST-Based Source Scanning**: The tool parses your JS/TS/JSX/TSX files using `@babel/parser` to accurately detect `import`, `require`, `export ... from`, and dynamic `import()` statements — no regex guessing
-2. **Config File Scanning**: It also checks common config files (`tailwind.config.js`, `.eslintrc`, `postcss.config.js`, `vite.config.js`, `tsconfig.json`, and more) for packages referenced outside of source code
+2. **Config File Scanning**: It also checks common config files (`tailwind.config.js`, `.eslintrc`, `postcss.config.js`, `vite.config.js`, `tsconfig.json`, and more) for packages referenced outside of source code. ESLint configs are understood in both flat (`eslint.config.*`) and legacy (`.eslintrc*`, including YAML and the `eslintConfig` field in `package.json`) form, including short names such as `react` for `eslint-plugin-react` and `airbnb` for `eslint-config-airbnb`
 3. **Dependency Analysis**: It cross-references all found references with your `package.json`
 4. **Security Checking**: It queries the free OSV.dev vulnerability database for the installed version of each package (no token required)
 5. **Deprecation Analysis**: It checks the npm registry for packages whose latest version is officially deprecated
