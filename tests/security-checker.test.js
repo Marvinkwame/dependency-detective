@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mapOsvVulns } from '../src/security-checker.js';
+import { mapOsvVulns, chooseFixVersion } from '../src/security-checker.js';
 
 test('mapOsvVulns maps OSV entries to a short display shape', () => {
   const vulns = [
@@ -52,4 +52,32 @@ test('mapOsvVulns falls back when fields are missing', () => {
 
 test('mapOsvVulns handles undefined input', () => {
   assert.deepEqual(mapOsvVulns(), []);
+});
+
+test('chooseFixVersion picks the lowest fix above installed per advisory, then the max', () => {
+  assert.deepEqual(
+    chooseFixVersion('1.6.0', [{ fixedIn: '0.30.0, 1.12.0' }, { fixedIn: '1.8.2' }]),
+    { fixVersion: '1.12.0', majorUpgrade: false }
+  );
+});
+
+test('chooseFixVersion flags major upgrades', () => {
+  assert.deepEqual(chooseFixVersion('4.17.15', [{ fixedIn: '5.0.0' }]), {
+    fixVersion: '5.0.0',
+    majorUpgrade: true,
+  });
+});
+
+test('chooseFixVersion returns null when an advisory has no fix', () => {
+  assert.deepEqual(chooseFixVersion('1.0.0', [{ fixedIn: '1.0.1' }, { fixedIn: null }]), {
+    fixVersion: null,
+    majorUpgrade: false,
+  });
+});
+
+test('chooseFixVersion ignores fixes at or below the installed version', () => {
+  assert.deepEqual(chooseFixVersion('2.0.0', [{ fixedIn: '1.9.0' }]), {
+    fixVersion: null,
+    majorUpgrade: false,
+  });
 });

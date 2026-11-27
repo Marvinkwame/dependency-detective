@@ -10,7 +10,7 @@ const { version } = require('./package.json');
 
 program
   .version(version)
-  .description('Analyzes your project dependencies to identify unused packages, security risks, and suggest alternatives')
+  .description("Checks your app's dependencies before release: missing, unused, vulnerable and deprecated packages, with commands to fix them")
   .option('-d, --directory <path>', 'project directory to analyze', process.cwd())
   .option('-v, --verbose', 'show detailed output')
   .option('--no-suggestions', 'skip suggesting alternative packages')
@@ -18,8 +18,8 @@ program
   .option('--json', 'print the report as JSON (for CI and scripts)')
   .addHelpText('after', `
 Exit codes:
-  0  no unused dependencies or known vulnerabilities
-  1  unused dependencies or known vulnerabilities found
+  0  nothing that needs fixing before release
+  1  unused dependencies, production vulnerabilities or missing dependencies found
   2  the analysis could not run (e.g. no package.json)`)
   .action(async (options) => {
     const ignoreList = options.ignore

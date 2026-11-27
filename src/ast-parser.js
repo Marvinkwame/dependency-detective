@@ -29,13 +29,18 @@ function walk(node, visitor) {
 
 export async function parseFileImports(filePath) {
   const referenced = new Set();
+  const imports = [];
   const warnings = [];
+  const record = (source, typeOnly = false) => {
+    referenced.add(extractPackageName(source));
+    imports.push({ source, typeOnly });
+  };
 
   let content;
   try {
     content = await fs.promises.readFile(filePath, 'utf8');
   } catch {
-    return { referenced, warnings };
+    return { referenced, imports, warnings };
   }
 
   let ast;
@@ -47,18 +52,18 @@ export async function parseFileImports(filePath) {
     });
   } catch (err) {
     warnings.push(`Could not parse ${filePath}: ${err.message}`);
-    return { referenced, warnings };
+    return { referenced, imports, warnings };
   }
 
   walk(ast, {
     ImportDeclaration(node) {
-      if (node.source?.value) referenced.add(extractPackageName(node.source.value));
+      if (node.source?.value) record(node.source.value, node.importKind === 'type');
     },
     ExportNamedDeclaration(node) {
-      if (node.source?.value) referenced.add(extractPackageName(node.source.value));
+      if (node.source?.value) record(node.source.value, node.exportKind === 'type');
     },
     ExportAllDeclaration(node) {
-      if (node.source?.value) referenced.add(extractPackageName(node.source.value));
+      if (node.source?.value) record(node.source.value, node.exportKind === 'type');
     },
     CallExpression(node) {
       // require('pkg')  — CommonJS
@@ -70,16 +75,16 @@ export async function parseFileImports(filePath) {
         (isRequire || isDynamicImport) &&
         node.arguments?.[0]?.type === 'StringLiteral'
       ) {
-        referenced.add(extractPackageName(node.arguments[0].value));
+        record(node.arguments[0].value);
       }
     },
     // ESTree-shaped dynamic import (only if a future estree plugin is enabled)
     ImportExpression(node) {
       if (node.source?.type === 'StringLiteral') {
-        referenced.add(extractPackageName(node.source.value));
+        record(node.source.value);
       }
     },
   });
 
-  return { referenced, warnings };
+  return { referenced, imports, warnings };
 }
