@@ -69,7 +69,7 @@ export async function runAnalysis(options = {}, onProgress = () => {}) {
     deprecated = Object.values(found).map((info) => ({
       name: info.name,
       message: info.deprecated,
-      lastUpdated: info.lastUpdated,
+      latestVersion: info.latestVersion,
     }));
   }
 
@@ -217,7 +217,7 @@ function displayResults(report, verbose) {
       console.log(`  ${chalk.yellow(info.name)}`);
       if (verbose) {
         console.log(`    ${chalk.dim(info.message)}`);
-        if (info.lastUpdated) console.log(`    ${chalk.dim(`Last updated: ${info.lastUpdated}`)}`);
+        if (info.latestVersion) console.log(`    ${chalk.dim(`Latest: ${info.latestVersion}`)}`);
       }
     }
   }
