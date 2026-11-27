@@ -4,6 +4,26 @@ import { parseFileImports } from './ast-parser.js';
 import { scanConfigFiles } from './config-scanner.js';
 import { findScriptReferences } from './script-scanner.js';
 
+const SOURCE_EXTENSIONS = '{js,jsx,ts,tsx,mjs,cjs}';
+
+// Build output and tool caches: bundled code here requires packages the project
+// doesn't declare directly, so scanning it would distort both unused and missing.
+export const GENERATED_DIRS = [
+  'node_modules',
+  'dist',
+  'build',
+  'out',
+  'coverage',
+  '.next',
+  '.nuxt',
+  '.output',
+  '.svelte-kit',
+  '.vercel',
+  '.netlify',
+  '.turbo',
+  '.cache',
+];
+
 export function resolveTypesUsage(referenced, deps) {
   const used = new Set();
   for (const dep of deps) {
@@ -24,14 +44,18 @@ export async function findUnusedDependencies(directory, dependencies, packageJso
   const allDeps = Object.keys(dependencies);
   const warnings = [];
 
-  const files = await glob('**/*.{js,jsx,ts,tsx,mjs,cjs}', {
-    cwd: directory,
-    ignore: ['**/node_modules/**', '**/dist/**', '**/build/**'],
-  });
+  const files = (
+    await glob([`**/*.${SOURCE_EXTENSIONS}`, `.storybook/**/*.${SOURCE_EXTENSIONS}`], {
+      cwd: directory,
+      posix: true,
+      ignore: GENERATED_DIRS.map((dir) => `**/${dir}/**`),
+    })
+  ).sort();
 
   const parsed = await Promise.all(
     files.map((file) => parseFileImports(path.join(directory, file)))
   );
+  const fileImports = files.map((file, i) => ({ file, imports: parsed[i].imports }));
 
   const allDepsSet = new Set(allDeps);
   const referenced = new Set();
@@ -65,5 +89,5 @@ export async function findUnusedDependencies(directory, dependencies, packageJso
     }
   }
 
-  return { unusedDeps, warnings };
+  return { unusedDeps, warnings, fileImports };
 }
