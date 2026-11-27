@@ -132,7 +132,11 @@ function displayResults({ unusedDeps, security, deprecated, verbose, directory }
       if (verbose) {
         issues.forEach((issue) => {
           console.log(`    - ${String(issue.severity).toUpperCase()}: ${issue.title}`);
-          if (issue.description) console.log(`      ${chalk.dim(issue.description)}`);
+          const meta = [
+            issue.fixedIn && `fixed in ${issue.fixedIn}`,
+            issue.url,
+          ].filter(Boolean);
+          if (meta.length > 0) console.log(`      ${chalk.dim(meta.join(' · '))}`);
         });
       }
     });

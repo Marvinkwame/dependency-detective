@@ -6,11 +6,26 @@ import { mapWithConcurrency } from './util/concurrency.js';
 const OSV_ENDPOINT = 'https://api.osv.dev/v1/query';
 const CONCURRENCY = 8;
 
-export function mapOsvVulns(vulns = []) {
+function fixedVersions(vuln, packageName) {
+  const fixed = new Set();
+  for (const affected of vuln.affected ?? []) {
+    if (affected.package?.name !== packageName) continue;
+    for (const range of affected.ranges ?? []) {
+      for (const event of range.events ?? []) {
+        if (event.fixed) fixed.add(event.fixed);
+      }
+    }
+  }
+  return fixed.size > 0 ? [...fixed].join(', ') : null;
+}
+
+export function mapOsvVulns(vulns = [], packageName) {
   return vulns.map((v) => ({
+    id: v.id ?? null,
     severity: v.database_specific?.severity ?? 'UNKNOWN',
     title: v.summary ?? v.id ?? 'Unknown vulnerability',
-    description: v.details ?? '',
+    fixedIn: fixedVersions(v, packageName),
+    url: v.id ? `https://osv.dev/vulnerability/${v.id}` : null,
   }));
 }
 
@@ -42,7 +57,7 @@ export async function checkVulnerabilities(dependencies, directory) {
         version,
         package: { name: dep, ecosystem: 'npm' },
       });
-      const issues = mapOsvVulns(res.data?.vulns);
+      const issues = mapOsvVulns(res.data?.vulns, dep);
       if (issues.length > 0) vulnerabilities[dep] = issues;
     } catch {
       errored++;

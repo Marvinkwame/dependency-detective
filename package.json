@@ -22,10 +22,10 @@
   "license": "MIT",
   "dependencies": {
     "@babel/parser": "^7.29.3",
-    "axios": "^1.8.1",
+    "axios": "^1.21.1",
     "chalk": "^5.4.1",
     "commander": "^13.1.0",
-    "glob": "^11.0.1",
+    "glob": "^14.0.6",
     "ora": "^8.2.0"
   },
   "repository": {
