@@ -53,7 +53,14 @@ export async function runAnalysis(options = {}, onProgress = () => {}) {
   const { unusedDeps, warnings } = await findUnusedDependencies(directory, dependencies, packageJson);
 
   onProgress('Checking for security vulnerabilities...');
-  const security = await checkVulnerabilities(dependencies, directory);
+  const prodNames = new Set(Object.keys(packageJson.dependencies || {}));
+  const security = await checkVulnerabilities(
+    Object.keys(dependencies).map((name) => ({
+      name,
+      scope: prodNames.has(name) ? 'production' : 'development',
+    })),
+    directory
+  );
 
   let deprecated = null;
   if (options.suggestions !== false) {
@@ -67,10 +74,7 @@ export async function runAnalysis(options = {}, onProgress = () => {}) {
   }
 
   const unused = unusedDeps.map(({ name, version }) => ({ name, version }));
-  const vulnerabilities = Object.entries(security.vulnerabilities).map(([name, issues]) => ({
-    name,
-    issues,
-  }));
+  const vulnerabilities = security.vulnerabilities;
 
   return {
     directory,
