@@ -1,11 +1,11 @@
 {
   "name": "dependency-detective",
-  "version": "0.4.0",
-  "description": "Analyzes your project's dependencies, identifies unused ones, forecasts potential security risks, and suggests better alternatives",
+  "version": "0.4.1",
+  "description": "Finds unused dependencies, known vulnerabilities (via OSV.dev), and deprecated packages in your Node.js project",
   "main": "index.js",
   "type": "module",
   "bin": {
-    "dependency-detective": "./index.js"
+    "dependency-detective": "index.js"
   },
   "scripts": {
     "start": "node index.js",
@@ -30,7 +30,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Marvinkwame/dependency-detective"
+    "url": "git+https://github.com/Marvinkwame/dependency-detective.git"
   },
-  "homepage": "https://github.com/Marvinkwame/dependency-detective#"
+  "homepage": "https://github.com/Marvinkwame/dependency-detective#",
+  "files": [
+    "index.js",
+    "src/"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
 }
