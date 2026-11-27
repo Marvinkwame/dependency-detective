@@ -6,63 +6,113 @@ import { findUnusedDependencies } from './unused-detector.js';
 import { checkVulnerabilities } from './security-checker.js';
 import { suggestAlternatives } from './alternative-suggester.js';
 
-export async function analyzeProject(options = {}) {
-  const spinner = ora('Analyzing your project dependencies...').start();
+export const EXIT_OK = 0;
+export const EXIT_ISSUES = 1;
+export const EXIT_ERROR = 2;
+
+class AnalysisError extends Error {}
+
+/**
+ * Runs every check and returns a plain report object. Prints nothing.
+ * `onProgress` receives a short status message before each step.
+ */
+export async function runAnalysis(options = {}, onProgress = () => {}) {
+  const directory = path.resolve(options.directory ?? process.cwd());
   const ignoreSet = new Set(options.ignore || []);
-  const warnings = [];
 
+  const packageJsonPath = path.join(directory, 'package.json');
+  if (!fs.existsSync(packageJsonPath)) {
+    throw new AnalysisError(`No package.json found in ${directory}`);
+  }
+
+  let packageJson;
   try {
-    const packageJsonPath = path.join(options.directory, 'package.json');
+    packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  } catch (err) {
+    throw new AnalysisError(`Could not read ${packageJsonPath}: ${err.message}`);
+  }
 
-    if (!fs.existsSync(packageJsonPath)) {
-      spinner.fail('No package.json found in the specified directory');
-      return;
-    }
-
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    const dependencies = {
+  const dependencies = Object.fromEntries(
+    Object.entries({
       ...(packageJson.dependencies || {}),
       ...(packageJson.devDependencies || {}),
-    };
+    }).filter(([depName]) => !ignoreSet.has(depName))
+  );
 
-    const filteredDependencies = Object.fromEntries(
-      Object.entries(dependencies).filter(([depName]) => !ignoreSet.has(depName))
-    );
+  onProgress('Scanning for unused dependencies...');
+  const { unusedDeps, warnings } = await findUnusedDependencies(directory, dependencies, packageJson);
 
-    spinner.text = 'Scanning for unused dependencies...';
-    const { unusedDeps, warnings: depWarnings } = await findUnusedDependencies(
-      options.directory,
-      filteredDependencies,
-      packageJson
-    );
-    warnings.push(...depWarnings);
+  onProgress('Checking for security vulnerabilities...');
+  const security = await checkVulnerabilities(dependencies, directory);
 
-    spinner.text = 'Checking for security vulnerabilities...';
-    const security = await checkVulnerabilities(filteredDependencies, options.directory);
+  let deprecated = null;
+  if (options.suggestions !== false) {
+    onProgress('Checking for deprecated packages...');
+    const found = await suggestAlternatives(dependencies);
+    deprecated = Object.values(found).map((info) => ({
+      name: info.name,
+      message: info.deprecated,
+      lastUpdated: info.lastUpdated,
+    }));
+  }
 
-    let deprecated = {};
-    if (options.suggestions !== false) {
-      spinner.text = 'Checking for deprecated packages...';
-      deprecated = await suggestAlternatives(filteredDependencies);
+  const unused = unusedDeps.map(({ name, version }) => ({ name, version }));
+  const vulnerabilities = Object.entries(security.vulnerabilities).map(([name, issues]) => ({
+    name,
+    issues,
+  }));
+
+  return {
+    directory,
+    unused,
+    estimatedSavingsBytes: getSavingsBytes(unused, directory),
+    vulnerabilities,
+    notChecked: security.skipped,
+    securityCheckFailed: security.failed,
+    deprecated,
+    warnings,
+    summary: {
+      unused: unused.length,
+      vulnerable: vulnerabilities.length,
+      deprecated: deprecated?.length ?? 0,
+    },
+  };
+}
+
+/** 1 when there are unused dependencies or known vulnerabilities, else 0. */
+export function exitCodeFor(report) {
+  return report.unused.length > 0 || report.vulnerabilities.length > 0 ? EXIT_ISSUES : EXIT_OK;
+}
+
+/** CLI entry: prints the report (human-readable or JSON) and returns an exit code. */
+export async function analyzeProject(options = {}) {
+  if (options.json) {
+    try {
+      const report = await runAnalysis(options);
+      console.log(JSON.stringify(report, null, 2));
+      return exitCodeFor(report);
+    } catch (error) {
+      console.log(JSON.stringify({ error: error.message }, null, 2));
+      return EXIT_ERROR;
     }
+  }
 
-    spinner.succeed('Analysis complete!');
-
-    displayResults({
-      unusedDeps,
-      security,
-      deprecated,
-      verbose: options.verbose,
-      directory: options.directory,
+  const spinner = ora('Analyzing your project dependencies...').start();
+  try {
+    const report = await runAnalysis(options, (text) => {
+      spinner.text = text;
     });
-
-    if (warnings.length > 0) {
-      console.log('\n' + chalk.dim('Warnings:'));
-      for (const w of warnings) console.log(chalk.dim(`  - ${w}`));
-    }
+    spinner.succeed('Analysis complete!');
+    displayResults(report, options.verbose);
+    return exitCodeFor(report);
   } catch (error) {
-    spinner.fail('Analysis failed');
-    console.error(chalk.red('Error:'), error.message);
+    if (error instanceof AnalysisError) {
+      spinner.fail(error.message);
+    } else {
+      spinner.fail('Analysis failed');
+      console.error(chalk.red('Error:'), error.message);
+    }
+    return EXIT_ERROR;
   }
 }
 
@@ -89,76 +139,77 @@ function dirSize(dir) {
   return total;
 }
 
-function getSavingsEstimate(unusedDeps, directory) {
+function getSavingsBytes(unused, directory) {
   const nodeModules = path.join(directory, 'node_modules');
-  if (!fs.existsSync(nodeModules)) return null;
+  if (unused.length === 0 || !fs.existsSync(nodeModules)) return null;
   let bytes = 0;
-  for (const dep of unusedDeps) {
+  for (const dep of unused) {
     bytes += dirSize(path.join(nodeModules, dep.name));
   }
-  return `~${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  return bytes;
 }
 
-function displayResults({ unusedDeps, security, deprecated, verbose, directory }) {
+function displayResults(report, verbose) {
   console.log('\n' + chalk.bold('📦 DEPENDENCY DETECTIVE REPORT') + '\n');
 
   // Unused dependencies
   console.log(chalk.bold('🗑️  Unused Dependencies:'));
-  if (unusedDeps.length === 0) {
+  if (report.unused.length === 0) {
     console.log(chalk.green('  No unused dependencies found. Great job!'));
   } else {
-    unusedDeps.forEach((dep) => {
+    for (const dep of report.unused) {
       console.log(`  ${chalk.yellow(dep.name)} ${chalk.dim(`v${dep.version}`)}`);
-      if (verbose && dep.reason) {
-        console.log(`    ${chalk.dim(dep.reason)}`);
+      if (verbose) {
+        console.log(`    ${chalk.dim('Not imported in any source, config file or script')}`);
       }
-    });
-    const savings = getSavingsEstimate(unusedDeps, directory);
-    if (savings) {
-      console.log(chalk.dim(`\n  Removing these could free approximately ${savings} on disk`));
+    }
+    if (report.estimatedSavingsBytes !== null) {
+      const mb = (report.estimatedSavingsBytes / (1024 * 1024)).toFixed(1);
+      console.log(chalk.dim(`\n  Removing these could free about ${mb}MB on disk`));
     }
   }
 
   // Security vulnerabilities
   console.log('\n' + chalk.bold('🔒 Security Vulnerabilities:'));
-  const { vulnerabilities, skipped, failed } = security;
-  if (failed) {
+  if (report.securityCheckFailed) {
     console.log(chalk.yellow('  ⚠  Security check failed (network error). Try again later.'));
-  } else if (Object.keys(vulnerabilities).length === 0) {
+  } else if (report.vulnerabilities.length === 0) {
     console.log(chalk.green('  No known vulnerabilities detected.'));
   } else {
-    Object.entries(vulnerabilities).forEach(([depName, issues]) => {
-      console.log(`  ${chalk.red(depName)} ${chalk.dim(`(${issues.length} issues)`)}`);
+    for (const { name, issues } of report.vulnerabilities) {
+      console.log(`  ${chalk.red(name)} ${chalk.dim(`(${issues.length} issues)`)}`);
       if (verbose) {
-        issues.forEach((issue) => {
+        for (const issue of issues) {
           console.log(`    - ${String(issue.severity).toUpperCase()}: ${issue.title}`);
-          const meta = [
-            issue.fixedIn && `fixed in ${issue.fixedIn}`,
-            issue.url,
-          ].filter(Boolean);
+          const meta = [issue.fixedIn && `fixed in ${issue.fixedIn}`, issue.url].filter(Boolean);
           if (meta.length > 0) console.log(`      ${chalk.dim(meta.join(' · '))}`);
-        });
+        }
       }
-    });
+    }
   }
-  if (skipped && skipped.length > 0) {
+  if (report.notChecked.length > 0) {
     console.log(
       chalk.dim(
-        `  ${skipped.length} package(s) not checked (not installed) — run \`npm install\` for full coverage.`
+        `  ${report.notChecked.length} package(s) not checked (not installed) — run \`npm install\` for full coverage.`
       )
     );
   }
 
   // Deprecated packages
-  if (Object.keys(deprecated).length > 0) {
+  if (report.deprecated?.length > 0) {
     console.log('\n' + chalk.bold('⚠️  Deprecated Packages:'));
-    Object.entries(deprecated).forEach(([depName, info]) => {
-      console.log(`  ${chalk.yellow(depName)}`);
+    for (const info of report.deprecated) {
+      console.log(`  ${chalk.yellow(info.name)}`);
       if (verbose) {
-        console.log(`    ${chalk.dim(info.deprecated)}`);
+        console.log(`    ${chalk.dim(info.message)}`);
         if (info.lastUpdated) console.log(`    ${chalk.dim(`Last updated: ${info.lastUpdated}`)}`);
       }
-    });
+    }
+  }
+
+  if (report.warnings.length > 0) {
+    console.log('\n' + chalk.dim('Warnings:'));
+    for (const w of report.warnings) console.log(chalk.dim(`  - ${w}`));
   }
 
   // Next steps

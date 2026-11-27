@@ -47,6 +47,9 @@ dependency-detective --verbose
 
 # Skip the deprecated-package check
 dependency-detective --no-suggestions
+
+# Print the report as JSON
+dependency-detective --json
 ```
 
 ## 📊 Example Output
@@ -58,7 +61,7 @@ dependency-detective --no-suggestions
   jquery v3.6.0
   moment v2.29.4
 
-  Removing these could free approximately ~3.2MB on disk
+  Removing these could free about 3.2MB on disk
 
 🔒 Security Vulnerabilities:
   lodash (1 issues)
@@ -81,10 +84,62 @@ dependency-detective --no-suggestions
 | `-v, --verbose` | Show detailed output including reasons and statistics |
 | `--no-suggestions` | Skip the deprecated-package check |
 | `--ignore <packages>` | Comma-separated list of package names to exclude from all checks |
+| `--json` | Print the report as JSON instead of the formatted report |
 | `--help` | Display help information |
 | `--version` | Display version number |
 
 Use `--ignore` for packages that are intentionally hard to detect — build tools, PostCSS plugins, ESLint configs, and similar packages that are referenced in config files rather than imported in source code.
+
+## 🤖 Using in CI
+
+The exit code tells your pipeline whether anything needs attention:
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | No unused dependencies or known vulnerabilities |
+| `1` | Unused dependencies or known vulnerabilities found |
+| `2` | The analysis could not run (for example, no `package.json`) |
+
+Deprecated packages are reported but don't fail the run. If the vulnerability lookup itself fails (network error), `securityCheckFailed` is `true` in the JSON and the run doesn't fail on that alone.
+
+```bash
+# Fail the build on unused or vulnerable dependencies
+npx dependency-detective
+
+# Save a machine-readable report
+npx dependency-detective --json > dependency-report.json
+```
+
+With `--json`, only JSON is written to stdout:
+
+```json
+{
+  "directory": "/path/to/project",
+  "unused": [{ "name": "moment", "version": "^2.29.4" }],
+  "estimatedSavingsBytes": 4404019,
+  "vulnerabilities": [
+    {
+      "name": "lodash",
+      "issues": [
+        {
+          "id": "GHSA-35jh-r3h4-6jhm",
+          "severity": "HIGH",
+          "title": "Command Injection in lodash",
+          "fixedIn": "4.17.21",
+          "url": "https://osv.dev/vulnerability/GHSA-35jh-r3h4-6jhm"
+        }
+      ]
+    }
+  ],
+  "notChecked": [],
+  "securityCheckFailed": false,
+  "deprecated": [{ "name": "request", "message": "request has been deprecated", "lastUpdated": "2024-01-01T00:00:00.000Z" }],
+  "warnings": [],
+  "summary": { "unused": 1, "vulnerable": 1, "deprecated": 1 }
+}
+```
+
+`deprecated` is `null` when the check is skipped with `--no-suggestions`. If the analysis can't run, the output is `{ "error": "..." }` with exit code `2`.
 
 ## 🧩 How It Works
 
@@ -147,7 +202,7 @@ npm test
 - [x] Token-free vulnerability checks via OSV.dev
 - [ ] `--fix` / interactive removal of unused dependencies
 - [ ] Add support for monorepos and workspaces
-- [ ] `--json` output and CI mode with exit codes
+- [x] `--json` output and CI mode with exit codes
 - [ ] Maintenance/abandonment signals for dependencies
 
 ## 📄 License

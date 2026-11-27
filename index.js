@@ -15,11 +15,17 @@ program
   .option('-v, --verbose', 'show detailed output')
   .option('--no-suggestions', 'skip suggesting alternative packages')
   .option('--ignore <packages>', 'comma-separated package names to exclude from analysis', '')
+  .option('--json', 'print the report as JSON (for CI and scripts)')
+  .addHelpText('after', `
+Exit codes:
+  0  no unused dependencies or known vulnerabilities
+  1  unused dependencies or known vulnerabilities found
+  2  the analysis could not run (e.g. no package.json)`)
   .action(async (options) => {
     const ignoreList = options.ignore
       ? options.ignore.split(',').map(p => p.trim()).filter(Boolean)
       : [];
-    await analyzeProject({ ...options, ignore: ignoreList });
+    process.exitCode = await analyzeProject({ ...options, ignore: ignoreList });
   });
 
-program.parse(process.argv);
+await program.parseAsync(process.argv);
