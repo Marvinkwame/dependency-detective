@@ -5,14 +5,17 @@ const VERBS = {
   bun: { add: 'bun add', addDev: 'bun add -d', remove: 'bun remove' },
 };
 
-const MAJOR_NOTE = '  # major upgrade, check the changelog';
-
-/** One command for the group's regular packages, then one line per major upgrade. */
+/**
+ * One command for the group's regular packages, then one command per major
+ * upgrade so it can be run (or skipped) on its own. Commands carry no shell
+ * comments, so they paste cleanly into cmd.exe as well as POSIX shells; the
+ * report flags major upgrades separately.
+ */
 function groupCommands(verb, entries) {
   const sorted = [...entries].sort((a, b) => a.spec.localeCompare(b.spec));
   const regular = sorted.filter((e) => !e.major).map((e) => e.spec);
   const lines = regular.length > 0 ? [`${verb} ${regular.join(' ')}`] : [];
-  for (const e of sorted.filter((e) => e.major)) lines.push(`${verb} ${e.spec}${MAJOR_NOTE}`);
+  for (const e of sorted.filter((e) => e.major)) lines.push(`${verb} ${e.spec}`);
   return lines;
 }
 

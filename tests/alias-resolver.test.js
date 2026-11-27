@@ -87,3 +87,19 @@ test('broken tsconfig warns', () => {
   assert.equal(warnings.length, 1);
   assert.match(warnings[0], /tsconfig\.json/);
 });
+
+test('parseJsonc drops a trailing comma followed by a comment', () => {
+  assert.deepEqual(parseJsonc('{"a":1, // c\n}'), { a: 1 });
+  assert.deepEqual(parseJsonc('{"a":[1,/*x*/]}'), { a: [1] });
+  assert.deepEqual(parseJsonc('{"a":1,\n// c\n}'), { a: 1 });
+});
+
+test('a missing relative extends target keeps the config own options', () => {
+  const dir = tempProject({
+    'tsconfig.json': { extends: './.nuxt/tsconfig.json', compilerOptions: { paths: { 'app/*': ['src/*'] } } },
+  });
+  const { isAlias, warnings } = loadAliasMatcher(dir, {});
+  assert.ok(isAlias('app/x'));
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /\.nuxt/);
+});

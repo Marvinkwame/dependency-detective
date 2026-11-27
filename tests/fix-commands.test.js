@@ -103,7 +103,7 @@ test('no fix → omitted', () => {
   assert.deepEqual(cmds, []);
 });
 
-test('major upgrade → own line with comment', () => {
+test('major upgrade → own line, no shell comment', () => {
   const cmds = buildFixCommands({
     packageManager: 'npm',
     missing: [],
@@ -115,7 +115,7 @@ test('major upgrade → own line with comment', () => {
   });
   assert.deepEqual(cmds, [
     'npm install axios@1.12.0',
-    'npm install lodash@5.0.0  # major upgrade, check the changelog',
+    'npm install lodash@5.0.0',
   ]);
 });
 

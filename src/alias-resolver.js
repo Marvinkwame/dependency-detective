@@ -11,38 +11,48 @@ const ALIAS_PREFIXES = ['~/', '@/', '$'];
  * as tsconfig.json and jsconfig.json allow. Throws on anything else invalid.
  */
 export function parseJsonc(text) {
+  return JSON.parse(removeTrailingCommas(stripComments(text)));
+}
+
+/** Calls `onChar(ch, i)` for characters outside strings; copies string contents verbatim. */
+function scanOutsideStrings(text, onChar) {
   let out = '';
-  let inString = false;
   for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (inString) {
-      out += ch;
-      if (ch === '\\') {
-        out += text[++i] ?? '';
-      } else if (ch === '"') {
-        inString = false;
-      }
+    if (text[i] === '"') {
+      let j = i + 1;
+      while (j < text.length && text[j] !== '"') j += text[j] === '\\' ? 2 : 1;
+      out += text.slice(i, j + 1);
+      i = j;
       continue;
     }
-    if (ch === '"') {
-      inString = true;
-      out += ch;
-    } else if (ch === '/' && text[i + 1] === '/') {
-      while (i < text.length && text[i] !== '\n') i++;
-      out += '\n';
-    } else if (ch === '/' && text[i + 1] === '*') {
-      i += 2;
-      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++;
-      i++;
-    } else if (ch === ',') {
-      let j = i + 1;
-      while (j < text.length && /\s/.test(text[j])) j++;
-      if (text[j] !== '}' && text[j] !== ']') out += ch;
-    } else {
-      out += ch;
-    }
+    const result = onChar(text[i], i);
+    out += result.emit;
+    i = result.next ?? i;
   }
-  return JSON.parse(out);
+  return out;
+}
+
+function stripComments(text) {
+  return scanOutsideStrings(text, (ch, i) => {
+    if (ch === '/' && text[i + 1] === '/') {
+      const end = text.indexOf('\n', i);
+      return { emit: '\n', next: end === -1 ? text.length : end };
+    }
+    if (ch === '/' && text[i + 1] === '*') {
+      const end = text.indexOf('*/', i + 2);
+      return { emit: ' ', next: end === -1 ? text.length : end + 1 };
+    }
+    return { emit: ch };
+  });
+}
+
+function removeTrailingCommas(text) {
+  return scanOutsideStrings(text, (ch, i) => {
+    if (ch !== ',') return { emit: ch };
+    let j = i + 1;
+    while (j < text.length && /\s/.test(text[j])) j++;
+    return { emit: text[j] === '}' || text[j] === ']' ? '' : ch };
+  });
 }
 
 function patternToRegex(pattern) {
@@ -58,7 +68,7 @@ function patternToRegex(pattern) {
  * (string or array). Child options replace parent options key by key.
  * Returns { paths, baseUrlDir } where baseUrlDir is absolute or null.
  */
-function loadCompilerOptions(configPath, seen = new Set()) {
+function loadCompilerOptions(configPath, warnings, seen = new Set()) {
   if (seen.has(configPath)) return { paths: null, baseUrlDir: null };
   seen.add(configPath);
 
@@ -71,7 +81,14 @@ function loadCompilerOptions(configPath, seen = new Set()) {
     if (typeof parent !== 'string' || !parent.startsWith('.')) continue; // package extends: not followed
     let parentPath = path.resolve(configDir, parent);
     if (!fs.existsSync(parentPath) && fs.existsSync(`${parentPath}.json`)) parentPath = `${parentPath}.json`;
-    const inherited = loadCompilerOptions(parentPath, seen);
+    let inherited;
+    try {
+      inherited = loadCompilerOptions(parentPath, warnings, seen);
+    } catch (err) {
+      // e.g. ./.nuxt/tsconfig.json before `nuxt prepare` — keep the child's own options
+      warnings.push(`Could not read ${parent} (extended by ${path.basename(configPath)}): ${err.message}`);
+      continue;
+    }
     result = {
       paths: inherited.paths ?? result.paths,
       baseUrlDir: inherited.baseUrlDir ?? result.baseUrlDir,
@@ -105,7 +122,7 @@ export function loadAliasMatcher(directory, packageJson = {}) {
   );
   if (configName) {
     try {
-      const options = loadCompilerOptions(path.join(directory, configName));
+      const options = loadCompilerOptions(path.join(directory, configName), warnings);
       pathRegexes = Object.keys(options.paths ?? {}).map(patternToRegex);
       baseUrlDir = options.baseUrlDir;
     } catch (err) {

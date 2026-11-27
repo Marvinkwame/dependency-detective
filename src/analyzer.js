@@ -317,6 +317,12 @@ function displayResults(report, verbose) {
   if (report.fixCommands.length > 0) {
     console.log('\n' + chalk.bold(`🔧 Suggested commands (${report.packageManager}):`));
     for (const cmd of report.fixCommands) console.log(`  ${cmd}`);
+    const majors = report.vulnerabilities.filter(
+      (v) => v.majorUpgrade && report.fixCommands.some((cmd) => cmd.includes(`${v.name}@${v.fixVersion}`))
+    );
+    for (const v of majors) {
+      console.log(chalk.yellow(`  ⚠  ${v.name}@${v.fixVersion} is a major upgrade — check the changelog first`));
+    }
   }
 
   if (report.warnings.length > 0) {
