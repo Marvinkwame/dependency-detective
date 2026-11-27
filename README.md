@@ -175,7 +175,7 @@ dependency-detective/
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/dependency-detective.git
+git clone https://github.com/Marvinkwame/dependency-detective.git
 cd dependency-detective
 
 # Install dependencies
